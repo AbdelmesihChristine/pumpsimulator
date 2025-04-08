@@ -4,6 +4,7 @@
 #include <QMessageBox>
 #include <QLabel>
 #include <QDoubleValidator>
+#include <QButtonGroup>
 #include "UserProfile.h"
 
 BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
@@ -17,7 +18,20 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
-    // BG Input
+    // BG Source toggles
+    QHBoxLayout* bgSourceLayout = new QHBoxLayout();
+    useManualBgRadio = new QRadioButton("Manual BG");
+    useCgmBgRadio    = new QRadioButton("CGM BG");
+    bgSourceLayout->addWidget(useManualBgRadio);
+    bgSourceLayout->addWidget(useCgmBgRadio);
+    mainLayout->addLayout(bgSourceLayout);
+
+    // Default to manual BG unchecked
+    useManualBgRadio->setChecked(true);
+
+    connect(useManualBgRadio, &QRadioButton::toggled, this, &BolusDeliveryWidget::onToggleBgSource);
+
+    // BG input
     QHBoxLayout* bgLayout = new QHBoxLayout();
     bgLayout->addWidget(new QLabel("BG (mmol/L):"));
     bgInput = new QLineEdit(this);
@@ -25,13 +39,13 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     bgLayout->addWidget(bgInput);
     mainLayout->addLayout(bgLayout);
 
-    // If cgmSimulator is available, connect signal to auto-update
+    // Connect CGM if needed
     if (cgmSimulator) {
         connect(cgmSimulator, &CgmSimulator::bgUpdated,
                 this, &BolusDeliveryWidget::onCgmBgUpdated);
     }
 
-    // Carbs Input
+    // Carbs
     QHBoxLayout* carbsLayout = new QHBoxLayout();
     carbsLayout->addWidget(new QLabel("Carbs (g):"));
     carbsInput = new QLineEdit(this);
@@ -39,7 +53,7 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     carbsLayout->addWidget(carbsInput);
     mainLayout->addLayout(carbsLayout);
 
-    // IOB Input
+    // IOB
     QHBoxLayout* iobLayout = new QHBoxLayout();
     iobLayout->addWidget(new QLabel("Insulin on Board (U):"));
     iobInput = new QLineEdit(this);
@@ -47,7 +61,7 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     iobLayout->addWidget(iobInput);
     mainLayout->addLayout(iobLayout);
 
-    // Suggested Bolus
+    // Suggested
     QHBoxLayout* bolusLayout = new QHBoxLayout();
     bolusLayout->addWidget(new QLabel("Suggested Bolus (U):"));
     suggestedBolus = new QLineEdit(this);
@@ -55,7 +69,7 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     bolusLayout->addWidget(suggestedBolus);
     mainLayout->addLayout(bolusLayout);
 
-    // Extended Bolus Options
+    // Extended?
     extendedCheck = new QCheckBox("Extended Bolus?", this);
     mainLayout->addWidget(extendedCheck);
 
@@ -63,15 +77,14 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     extendLayout->addWidget(new QLabel("Extended %:"));
     extendedPercent = new QSpinBox(this);
     extendedPercent->setRange(0,100);
-    extendedPercent->setValue(40); // default 40%
+    extendedPercent->setValue(40);
     extendLayout->addWidget(extendedPercent);
 
     extendLayout->addWidget(new QLabel("Duration (hrs):"));
     extendedHours = new QSpinBox(this);
     extendedHours->setRange(1, 24);
-    extendedHours->setValue(3); // default 3 hours
+    extendedHours->setValue(3);
     extendLayout->addWidget(extendedHours);
-
     mainLayout->addLayout(extendLayout);
 
     // Buttons
@@ -84,50 +97,58 @@ BolusDeliveryWidget::BolusDeliveryWidget(UserProfileManager* profileMgr,
     connect(deliverButton, &QPushButton::clicked, this, &BolusDeliveryWidget::onDeliverBolus);
 
     setLayout(mainLayout);
+
+    onToggleBgSource(); // update UI
 }
 
-/**
- * @brief Basic formula from your notes:
- *   Food Bolus = carbsVal / carbRatio
- *   Correction Bolus = max( (bgVal - targetBG)/correctionFactor , 0 )
- *   totalBeforeIOB = Food + Correction
- *   final = totalBeforeIOB - IOB
- */
 double BolusDeliveryWidget::calculateSuggestedBolus(double bgVal, double carbsVal, double iobVal)
 {
-    // Retrieve the active profile
+    // Example approach
+    // 1) Food bolus = carbsVal / carbRatio
+    // 2) Correction = (bgVal - targetGlucose)/correctionFactor (if above target)
+    // 3) totalBeforeIOB = Food + Correction
+    // 4) final = totalBeforeIOB - IOB, minimum 0
     UserProfile prof = userProfileManager->getActiveProfile();
 
-    // Food bolus
     double foodBolus = 0.0;
-    if (prof.carbRatio > 0) {
+    if (prof.carbRatio > 0.0) {
         foodBolus = carbsVal / prof.carbRatio;
     }
 
-    // Correction bolus
     double correction = 0.0;
-    double diff = bgVal - prof.targetGlucose;
-    if (diff > 0 && prof.correctionFactor > 0) {
+    if (bgVal > prof.targetGlucose && prof.correctionFactor > 0.0) {
+        double diff = bgVal - prof.targetGlucose;
         correction = diff / prof.correctionFactor;
     }
 
     double totalBeforeIOB = foodBolus + correction;
     double finalBolus = totalBeforeIOB - iobVal;
-    if (finalBolus < 0) {
-        finalBolus = 0;
-    }
+    if (finalBolus < 0) finalBolus = 0.0;
+
     return finalBolus;
 }
 
 void BolusDeliveryWidget::onCalculateBolus()
 {
     bool okBG, okCarbs, okIOB;
-    double bgVal    = bgInput->text().toDouble(&okBG);
     double carbsVal = carbsInput->text().toDouble(&okCarbs);
     double iobVal   = iobInput->text().toDouble(&okIOB);
 
-    if (!okBG || !okCarbs || !okIOB) {
-        QMessageBox::warning(this, "Invalid Input", "Please enter valid BG, Carbs, and IOB values.");
+    double bgVal = 0.0;
+    if (useManualBgRadio->isChecked()) {
+        // Use manual BG
+        bgVal = bgInput->text().toDouble(&okBG);
+        if(!okBG) {
+            QMessageBox::warning(this, "Invalid BG", "Please enter a valid BG value.");
+            return;
+        }
+    } else {
+        // Use CGM BG
+        bgVal = (cgmSimulator ? cgmSimulator->getCurrentBg() : 7.0);
+        okBG = true;
+    }
+    if (!okCarbs || !okIOB) {
+        QMessageBox::warning(this, "Invalid Input", "Please enter valid Carbs/IOB.");
         return;
     }
 
@@ -137,46 +158,56 @@ void BolusDeliveryWidget::onCalculateBolus()
 
 void BolusDeliveryWidget::onDeliverBolus()
 {
-    bool ok;
+    bool ok = false;
     double total = suggestedBolus->text().toDouble(&ok);
-    if (!ok || total <= 0) {
-        QMessageBox::warning(this, "Invalid Bolus", "Calculated bolus is invalid or zero.");
+    if (!ok) {
+        QMessageBox::warning(this, "Error", "No suggested bolus to deliver.");
+        return;
+    }
+    if (total <= 0) {
+        QMessageBox::information(this, "Bolus", "Bolus is 0U. Nothing to deliver.");
         return;
     }
 
-    // Check if extended is selected
-    double extFrac = 0.0;
-    int durHrs = 0;
+    double frac = 0.0;
+    int hours = 0;
     if (extendedCheck->isChecked()) {
-        extFrac = extendedPercent->value() / 100.0;
-        durHrs  = extendedHours->value();
+        frac  = extendedPercent->value() / 100.0;
+        hours = extendedHours->value();
     }
 
-    QString notes = QString("BG=%1, Carbs=%2, IOB=%3")
+    QString notes = QString("Manual Bolus. BG=%1, Carbs=%2, IOB=%3")
         .arg(bgInput->text())
         .arg(carbsInput->text())
         .arg(iobInput->text());
 
-    // Ask the PumpController to deliver
-    if (!pumpController->requestBolus(total, notes, extFrac, durHrs)) {
-        // The PumpController will emit bolusFailed() with an error if it fails
-        // But we can also show an alert here if we want.
+    bool success = pumpController->requestBolus(total, notes, frac, hours);
+    if(!success) {
+        QMessageBox::warning(this, "Safety Check Failed",
+                             "Cannot deliver bolus due to pump safety constraints.");
         return;
     }
 
-    // If it succeeded, you could optionally clear fields:
-    // bgInput->clear();
-    // carbsInput->clear();
-    // iobInput->clear();
-    // suggestedBolus->clear();
-    // ...
-    QMessageBox::information(this, "Bolus Requested",
-        QString("Total Bolus: %1 U \n(Extended? %2%)").arg(total).arg(extendedCheck->isChecked()? extendedPercent->value() : 0));
+    QMessageBox::information(this, "Bolus Delivered",
+        QString("Delivered: %1 U").arg(total));
 }
 
 void BolusDeliveryWidget::onCgmBgUpdated(double newBg)
 {
-    // If user wants auto-populate, we can just set the text
-    // or you can do more advanced logic. For now, let's just set it.
-    bgInput->setText(QString::number(newBg, 'f', 1));
+    if (useCgmBgRadio->isChecked()) {
+        // Update display to reflect the new CGM BG
+        bgInput->setText(QString::number(newBg, 'f', 1));
+    }
+}
+
+void BolusDeliveryWidget::onToggleBgSource()
+{
+    // If manual BG is selected, we enable bgInput, else we fill from CGM
+    bool manual = useManualBgRadio->isChecked();
+    bgInput->setReadOnly(!manual);
+
+    if (!manual && cgmSimulator) {
+        double cgmVal = cgmSimulator->getCurrentBg();
+        bgInput->setText(QString::number(cgmVal, 'f', 1));
+    }
 }

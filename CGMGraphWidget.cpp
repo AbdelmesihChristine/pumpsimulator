@@ -1,5 +1,7 @@
 #include "CGMGraphWidget.h"
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 
 CGMGraphWidget::CGMGraphWidget(CgmSimulator* simulator, QWidget *parent)
     : QWidget(parent)
@@ -11,10 +13,8 @@ CGMGraphWidget::CGMGraphWidget(CgmSimulator* simulator, QWidget *parent)
     axisX = new QValueAxis();
     axisY = new QValueAxis();
 
-    axisX->setTitleText("Time (s)");
+    axisX->setTitleText("Time (sec)");
     axisY->setTitleText("BG (mmol/L)");
-
-
     axisX->setRange(0, 60);
     axisY->setRange(2, 16);
 
@@ -24,45 +24,55 @@ CGMGraphWidget::CGMGraphWidget(CgmSimulator* simulator, QWidget *parent)
     series->attachAxis(axisX);
     series->attachAxis(axisY);
 
-    // Dark Theme + White Labels + White Titles
-    chart->setBackgroundBrush(QBrush(QColor("#1c1b1b"))); // Dark background
-    axisX->setGridLineColor(QColor("#555555"));            // Light gridlines
-    axisY->setGridLineColor(QColor("#555555"));            // Light gridlines
-    axisX->setLabelsBrush(QBrush(Qt::white));              // White axis numbers
-    axisY->setLabelsBrush(QBrush(Qt::white));              // White axis numbers
-    series->setColor(QColor("#00ccff"));                   // Blue glucose curve
-    series->setPointsVisible(false);                       // Hide dots, smooth curve
+    chart->setBackgroundBrush(QBrush(QColor("#1c1b1b")));
 
-    // New: Make Title Text white
-    QFont axisFont;
-    axisFont.setBold(true);
-    axisFont.setPointSize(10);
-
+    axisX->setGridLineColor(QColor("#555555"));
+    axisY->setGridLineColor(QColor("#555555"));
+    axisX->setLabelsBrush(QBrush(Qt::white));
+    axisY->setLabelsBrush(QBrush(Qt::white));
     axisX->setTitleBrush(QBrush(Qt::white));
     axisY->setTitleBrush(QBrush(Qt::white));
-    axisX->setTitleFont(axisFont);
-    axisY->setTitleFont(axisFont);
-
+    series->setColor(QColor("#00ccff"));
 
     chartView = new QChartView(chart, this);
     chartView->setRenderHint(QPainter::Antialiasing);
 
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->addWidget(chartView);
-    setLayout(layout);
+    rangeComboBox = new QComboBox(this);
+    rangeComboBox->addItem("1h (12s)", 12);  // 12 real seconds = 1 sim hour
+    rangeComboBox->addItem("3h (36s)", 36);  // 36 real seconds
+    rangeComboBox->addItem("6h (72s)", 72);  // 72 real seconds
+    connect(rangeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &CGMGraphWidget::onRangeChanged);
+
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->addWidget(new QLabel("BG Graph:", this));
+    mainLayout->addWidget(rangeComboBox);
+    mainLayout->addWidget(chartView);
+
+    setLayout(mainLayout);
 
     if (cgmSimulator) {
-        connect(cgmSimulator, &CgmSimulator::bgUpdated,
-                this, &CGMGraphWidget::updateGraph);
+        connect(cgmSimulator, &CgmSimulator::bgUpdated, this, &CGMGraphWidget::updateGraph);
     }
 }
 
 void CGMGraphWidget::updateGraph(double bgValue)
 {
-    timeCounter += 3;
+    // Each real second -> timeCounter++,
+    // so in 1 second we move 1 on X axis
+    timeCounter++;
     series->append(timeCounter, bgValue);
 
-    if (timeCounter > 60) {
-        axisX->setRange(timeCounter - 60, timeCounter);
+    // Keep the chart auto-scrolling if beyond the initial range
+    if (timeCounter > axisX->max()) {
+        double rangeSize = axisX->max() - axisX->min();
+        axisX->setRange(timeCounter - rangeSize, timeCounter);
     }
+}
+
+void CGMGraphWidget::onRangeChanged(int index)
+{
+    // We'll interpret the user data (12, 36, 72) as how many real seconds to show
+    int maxSec = rangeComboBox->currentData().toInt();
+    axisX->setRange(0, maxSec);
 }

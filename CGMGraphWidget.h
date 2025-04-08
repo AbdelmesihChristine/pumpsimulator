@@ -5,6 +5,7 @@
 #include <QtCharts/QChartView>
 #include <QtCharts/QLineSeries>
 #include <QtCharts/QValueAxis>
+#include <QComboBox>
 #include "CgmSimulator.h"
 
 QT_CHARTS_USE_NAMESPACE
@@ -18,6 +19,7 @@ public:
 
 private slots:
     void updateGraph(double bgValue);
+    void onRangeChanged(int index);
 
 private:
     CgmSimulator* cgmSimulator;
@@ -26,8 +28,9 @@ private:
     QChart* chart;
     QValueAxis* axisX;
     QValueAxis* axisY;
+    QComboBox*  rangeComboBox;
 
-    int timeCounter;
+    int timeCounter; // increments by 1 each second
 };
 
 #endif // CGMGRAPHWIDGET_H

@@ -5,10 +5,6 @@
 #include <vector>
 #include "UserProfile.h"
 
-/**
- * @brief Manages a list of user profiles and
- *        keeps track of which one is active.
- */
 class UserProfileManager : public QObject
 {
     Q_OBJECT

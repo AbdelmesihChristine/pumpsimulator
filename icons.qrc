@@ -1,8 +1,8 @@
 <RCC>
     <qresource prefix="/icons">
-        <file>icons/alert.png</file>
         <file>icons/drop.png</file>
-        <file>icons/file.png</file>
-        <file>icons/settings.png</file>
+        <file>icons/history.png</file>
+        <file>icons/setting.png</file>
+        <file>icons/warning.png</file>
     </qresource>
 </RCC>

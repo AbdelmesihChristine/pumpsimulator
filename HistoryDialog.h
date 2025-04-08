@@ -3,22 +3,19 @@
 
 #include <QDialog>
 #include <QTableWidget>
-#include "BolusHistoryManager.h"
+#include "HistoryManager.h"
 
-/**
- * @brief A dialog to display the bolus history in a table view.
- */
 class HistoryDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit HistoryDialog(BolusHistoryManager* manager, QWidget* parent = nullptr);
-
-private:
+    explicit HistoryDialog(HistoryManager* manager, QWidget* parent = nullptr);
     void updateTable();
 
-    BolusHistoryManager* historyManager;
+private:
+
+    HistoryManager* historyManager;
     QTableWidget* table;
 };
 

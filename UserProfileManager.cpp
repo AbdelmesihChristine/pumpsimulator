@@ -3,8 +3,14 @@
 UserProfileManager::UserProfileManager(QObject* parent)
     : QObject(parent)
 {
-    // Optionally, add a default profile
-    UserProfile defaultP("Default", 1.0, 10.0, 2.0, 6.0);
+    // Add a default profile
+    UserProfile defaultP;
+    defaultP.name = "Default";
+    defaultP.basalRate = 1.0;
+    defaultP.carbRatio = 10.0;
+    defaultP.correctionFactor = 2.0;
+    defaultP.targetGlucose = 6.0;
+
     profiles.push_back(defaultP);
     activeProfile = defaultP;
 }

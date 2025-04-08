@@ -7,9 +7,6 @@
 #include <QListWidgetItem>
 #include "UserProfileManager.h"
 
-/**
- * @brief A dialog allowing CRUD operations on user profiles.
- */
 class ProfileDialog : public QDialog
 {
     Q_OBJECT
@@ -26,9 +23,7 @@ private:
     void refreshProfileList();
     bool getProfileInput(UserProfile &profile, const QString &title);
 
-    UserProfileManager* profileManager;  // pointer, not local
-
-    // UI elements
+    UserProfileManager* profileManager;
     QListWidget* profileList;
     QPushButton* addButton;
     QPushButton* editButton;

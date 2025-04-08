@@ -1,17 +1,21 @@
 #include "PumpController.h"
-#include "BolusRecord.h"
-#include <QTimer>
+#include "HistoryRecord.h"
 #include <QDebug>
 
 PumpController::PumpController(UserProfileManager* profileMgr,
-                               BolusHistoryManager* historyMgr,
+                               HistoryManager* histMgr,
                                BolusSafetyManager* safetyMgr,
+                               CgmSimulator* cgmSim,
                                QObject* parent)
-    : QObject(parent)
-    , userProfileManager(profileMgr)
-    , bolusHistoryManager(historyMgr)
-    , safetyManager(safetyMgr)
+    : QObject(parent),
+      userProfileManager(profileMgr),
+      historyManager(histMgr),
+      safetyManager(safetyMgr),
+      cgmSimulator(cgmSim)
 {
+    // Connect CGM updates to our controlIQ logic
+    connect(cgmSimulator, &CgmSimulator::bgUpdated,
+            this, &PumpController::onCgmUpdated);
 }
 
 bool PumpController::requestBolus(double totalBolus,
@@ -19,14 +23,12 @@ bool PumpController::requestBolus(double totalBolus,
                                   double extendedFrac,
                                   int durationHrs)
 {
-    // Safety check
     QString errorMsg;
     if (!safetyManager->canDeliverBolus(totalBolus, errorMsg)) {
-        emit bolusFailed(errorMsg);
+        // signal to UI
         return false;
     }
 
-    // Split immediate vs. extended
     double immediate = totalBolus;
     double extended  = 0.0;
     if (extendedFrac > 0.0 && extendedFrac < 1.0) {
@@ -34,24 +36,105 @@ bool PumpController::requestBolus(double totalBolus,
         extended  = totalBolus * extendedFrac;
     }
 
-    // 1) Deliver immediate portion
+    // Record immediate portion
     safetyManager->recordBolus(immediate);
-    BolusRecord immediateRecord(immediate, notes + " [Immediate]");
-    bolusHistoryManager->addRecord(immediateRecord);
+    historyManager->addRecord({
+        cgmSimulator->getSimTimeStr(),
+        RecordType::ManualBolus,
+        immediate,
+        notes + " (Immediate portion)"
+    });
 
-    // 2) Extended portion
+    // Extended portion
     if (extended > 0.0) {
-        // For demonstration, let's just record it at once
-        // In a real pump, you'd deliver it gradually over durationHrs
-        // with repeated safety checks or partial increments.
-
-        // Possibly do another check if you want to ensure daily limit
+        // For demonstration, we add it all at once
         safetyManager->recordBolus(extended);
-        BolusRecord extendedRecord(extended,
-            QString("Extended %1 hrs").arg(durationHrs));
-        bolusHistoryManager->addRecord(extendedRecord);
+        historyManager->addRecord({
+            cgmSimulator->getSimTimeStr(),
+            RecordType::ManualBolus,
+            extended,
+            QString("Extended portion over %1hr").arg(durationHrs)
+        });
     }
 
-    emit bolusDelivered(immediate, extended);
     return true;
+}
+
+void PumpController::onCgmUpdated(double newBg)
+{
+    // 1) Log CGM reading
+    historyManager->addRecord({
+        cgmSimulator->getSimTimeStr(),
+        RecordType::CgmReading,
+        0.0,
+        QString("BG= %1 mmol/L").arg(newBg, 0, 'f', 1)
+    });
+
+    // 2) ControlIQ check
+    runControlIQ(newBg);
+}
+
+void PumpController::runControlIQ(double currentBg)
+{
+    auto lastSix = cgmSimulator->getLastSixReadings();
+    if (lastSix.size() < 6) {
+        return; // Not enough data for 30min trend yet
+    }
+    double first = lastSix.front();  // 30 min ago
+    double predicted = currentBg + (currentBg - first);
+
+    // If predicted < 3.9 => reduce or suspend basal
+    if (predicted < 3.9) {
+        // e.g. Basal suspended
+        historyManager->addRecord({
+            cgmSimulator->getSimTimeStr(),
+            RecordType::Other,
+            0.0,
+            QString("Basal suspended by Control-IQ (predBG= %1)").arg(predicted,0,'f',1)
+        });
+        // In real system, you'd set the actual basal rate to 0.
+        return;
+    }
+
+    // If predicted >=14 => deliver auto correction
+    if (predicted >= 14.0) {
+        // A naive approach: deliver 1u.
+        // Real logic could be e.g. (predicted - target)/CF etc.
+        deliverAutoBolus(1.0, QString("Auto correction (predBG= %1)").arg(predicted,0,'f',1));
+        return;
+    }
+
+    // If predicted >=10 => increase basal
+    if (predicted >= 10.0) {
+        // e.g. Increase basal by some factor
+        historyManager->addRecord({
+            cgmSimulator->getSimTimeStr(),
+            RecordType::Other,
+            0.0,
+            QString("Basal increased by Control-IQ (predBG= %1)").arg(predicted,0,'f',1)
+        });
+    }
+    // else predicted is 3.9-10 => do nothing
+}
+
+void PumpController::deliverAutoBolus(double units, const QString& reason)
+{
+    QString errorMsg;
+    if (!safetyManager->canDeliverBolus(units, errorMsg)) {
+        // can't deliver auto-bolus
+        historyManager->addRecord({
+            cgmSimulator->getSimTimeStr(),
+            RecordType::Warning,
+            0.0,
+            QString("Auto-bolus blocked: %1").arg(errorMsg)
+        });
+        return;
+    }
+    safetyManager->recordBolus(units);
+    historyManager->addRecord({
+        cgmSimulator->getSimTimeStr(),
+        RecordType::AutoBolus,
+        units,
+        reason
+    });
 }

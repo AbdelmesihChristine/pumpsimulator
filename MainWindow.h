@@ -4,13 +4,10 @@
 #include <QMainWindow>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QtCharts/QChartView>
-
+#include <QTimer>
 #include "UserProfileManager.h"
 #include "BolusSafetyManager.h"
-#include "BolusHistoryManager.h"
+#include "HistoryManager.h"
 #include "PumpController.h"
 #include "CgmSimulator.h"
 #include "CGMGraphWidget.h"
@@ -18,13 +15,11 @@
 #include "ProfileDialog.h"
 #include "HistoryDialog.h"
 #include "AlertDialog.h"
-
-QT_CHARTS_USE_NAMESPACE
+#include "WarningChecker.h"
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -37,14 +32,13 @@ private slots:
     void updateTime();
 
 private:
-    // Backend managers
-    UserProfileManager*   userProfileManager;
-    BolusSafetyManager*   bolusSafetyManager;
-    BolusHistoryManager*  bolusHistoryManager;
-    PumpController*       pumpController;
-    CgmSimulator*         cgmSimulator;
+    UserProfileManager* userProfileManager;
+    BolusSafetyManager* bolusSafetyManager;
+    HistoryManager*     historyManager;
+    PumpController*     pumpController;
+    CgmSimulator*       cgmSimulator;
+    WarningChecker*     warningChecker;
 
-    // UI elements
     QLabel* batteryTextLabel;
     QWidget* batteryBarsWidget;
     QLabel* insulinTextLabel;
@@ -57,13 +51,12 @@ private:
     QPushButton* alertButton;
     CGMGraphWidget* cgmGraphWidget;
 
-    // Dialogs
     BolusDialog*   bolusDialog;
     ProfileDialog* profileDialog;
-    HistoryDialog* historyDialog;
+    HistoryDialog* histDialog;
     AlertDialog*   alertDialog;
 
-    QTimer* timer;
+    QTimer* uiRefreshTimer;
 };
 
 #endif // MAINWINDOW_H

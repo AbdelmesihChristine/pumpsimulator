@@ -4,36 +4,31 @@
 BolusSafetyManager::BolusSafetyManager()
     : totalDailyBolus(0.0)
 {
-    // lastBolusTime default invalid
 }
 
 bool BolusSafetyManager::canDeliverBolus(double amount, QString &errorMessage)
 {
     if (amount <= 0) {
-        errorMessage = "Bolus amount must be greater than 0.";
+        errorMessage = "Bolus must be > 0.";
         return false;
     }
-
     if (amount > maxSingleBolus) {
-        errorMessage = QString("Bolus exceeds the max single limit of %1 U.").arg(maxSingleBolus);
+        errorMessage = QString("Exceeds max single bolus of %1U.").arg(maxSingleBolus);
         return false;
     }
-
     if (totalDailyBolus + amount > maxDailyBolus) {
-        errorMessage = QString("Daily bolus limit of %1 U reached.").arg(maxDailyBolus);
+        errorMessage = QString("Exceeds daily bolus limit of %1U.").arg(maxDailyBolus);
         return false;
     }
-
     if (lastBolusTime.isValid()) {
-        int secs = lastBolusTime.secsTo(QTime::currentTime());
-        if (secs < cooldownMinutes * 60) {
-            int waitMins = cooldownMinutes - (secs / 60);
-            errorMessage = QString("Please wait %1 more minutes before another bolus.").arg(waitMins);
+        int secsSinceLast = lastBolusTime.secsTo(QTime::currentTime());
+        if (secsSinceLast < cooldownMinutes * 60) {
+            int remain = (cooldownMinutes * 60) - secsSinceLast;
+            int remainMin = remain / 60;
+            errorMessage = QString("Wait %1 more min(s) before another bolus.").arg(remainMin);
             return false;
         }
     }
-
-    // Passed all checks
     return true;
 }
 

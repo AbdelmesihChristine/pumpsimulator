@@ -5,10 +5,8 @@
 #include <QTime>
 
 /**
- * @brief A simple manager for safety checks:
- *        - max single bolus
- *        - max daily bolus
- *        - time-based cooldown
+ * @brief Checks bolus safety constraints
+ *        such as max single bolus, daily limit, and cooldown.
  */
 class BolusSafetyManager
 {
@@ -19,9 +17,9 @@ public:
     void recordBolus(double amount);
 
 private:
-    const double maxSingleBolus = 10.0;
-    const double maxDailyBolus  = 30.0;
-    const int cooldownMinutes   = 10;
+    double maxSingleBolus = 10.0;
+    double maxDailyBolus  = 30.0;
+    int cooldownMinutes   = 10;
 
     double totalDailyBolus;
     QTime lastBolusTime;
