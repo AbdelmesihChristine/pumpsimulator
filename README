@@ -1,0 +1,104 @@
+Name: Christine Abdelmesih  Email: christine.a.abdelmesih@hotmail.com  Student Number:
+
+Name: Joyee Han             Email: joyeehan@cmail.carleton.ca     Student Number:
+
+Name: Hamda Khalif          Email: Hamdakhalif@cmail.carleton.ca  Student Number: 101237070
+
+-Name: Eden Zebene          Email: edenzebene@cmail.carleton.ca   Student Number: 
+
+t:slim X2 Insulin Pump Simulator
+This is a Qt-based Insulin Pump Simulator that replicates the behavior of a modern insulin pump. It includes features such as real-time CGM data, bolus delivery, insulin and battery monitoring, user profiles, and history tracking.
+
+Project Structure
+The project is structured into various components, each responsible for a specific part of the simulation process:
+
+1. User Interface
+MainWindow.cpp / MainWindow.h: Core window that contains all main UI components of the application.
+
+MainWindow.ui: The UI layout file created using Qt Designer.
+
+2. Bolus Management
+BolusDialog.cpp / BolusDialog.h: Dialog for manual bolus input, where users can specify insulin doses.
+
+BolusDeliveryWidget.cpp / BolusDeliveryWidget.h: Widget for the display and control of bolus delivery.
+
+BolusHistoryManager.cpp / BolusHistoryManager.h: Manages and stores history related to bolus deliveries.
+
+BolusHistoryWidget.cpp / BolusHistoryWidget.h: Widget to display bolus delivery history.
+
+BolusSafetyManager.cpp / BolusSafetyManager.h: Ensures that bolus delivery stays within safe limits and conditions.
+
+3. CGM (Continuous Glucose Monitoring)
+CgmSimulator.cpp / CgmSimulator.h: Simulates real-time glucose levels and updates the CGM readings.
+
+CGMGraphWidget.cpp / CGMGraphWidget.h: Displays a graphical trend of glucose levels over time.
+
+4. User Profiles
+ProfileDialog.cpp / ProfileDialog.h: Dialog for managing user profiles, where insulin settings and personal data are configured.
+
+UserProfile.cpp / UserProfile.h: Class representing a user’s profile, containing insulin and personal details.
+
+UserProfileManager.cpp / UserProfileManager.h: Manages multiple user profiles.
+
+ProfileManagerWidget.cpp / ProfileManagerWidget.h: A widget to manage and select user profiles.
+
+5. History and Alerts
+HistoryDialog.cpp / HistoryDialog.h: Dialog to view historical records and data.
+
+HistoryManager.cpp / HistoryManager.h: Manages and stores the history of user interactions, such as bolus deliveries and insulin usage.
+
+HistoryRecord.cpp / HistoryRecord.h: Represents individual history records such as a bolus delivery or alert.
+
+WarningChecker.cpp / WarningChecker.h: Checks for conditions that require warnings, such as low insulin or battery levels.
+
+6. Pump Controller
+PumpController.cpp / PumpController.h: Controls the insulin pump’s behavior, interacting with the bolus and CGM systems.
+
+7. Miscellaneous
+TandemInsulinPumpSimulator.pro: The Qt project file for building the application.
+
+resources.qrc / icons.qrc: Resource files for managing icons and other assets in the app.
+
+main.cpp: The main entry point for the application.
+
+🛠️ Requirements
+Qt 5 or 6
+
+C++17 or later
+
+CMake (optional, if you're using it as a build system)
+
+🚀 Build & Run
+Using Qt Creator:
+Open the .pro or CMakeLists.txt file.
+
+Configure the project with a proper kit.
+
+Build & Run.
+
+Using Terminal:
+bash
+Copy
+Edit
+# Clone the repository
+git clone https://github.com/yourusername/pumpsimulator.git
+cd pumpsimulator
+
+# Build
+mkdir build && cd build
+cmake ..
+make
+
+
+
+User authentication
+
+Night mode / theme toggling
+
+
+T
+
+Notifications and sound alerts
+
+Export history to CSV/PDF
+
